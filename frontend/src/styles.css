@@ -325,6 +325,76 @@ a {
   white-space: pre-line;
 }
 
+.form-info {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* ---- Notices: post-registration & email verification ---- */
+
+.centered-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.notice-icon {
+  width: 64px;
+  height: 64px;
+  margin: 4px auto 0;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.notice-icon.danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.status-block {
+  margin-top: 24px;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.status-block h2 {
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-size: clamp(22px, 5vw, 28px);
+}
+
+.status-block p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.status-block .submit-button {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.stacked-actions {
+  margin-top: 22px;
+  display: grid;
+  gap: 12px;
+}
+
+.ghost-button.block {
+  width: 100%;
+  justify-content: center;
+}
+
 .submit-button {
   min-height: 54px;
   display: inline-flex;

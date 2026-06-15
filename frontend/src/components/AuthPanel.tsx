@@ -1,4 +1,4 @@
-import { ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, Mail, User as UserIcon } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, Mail, MailCheck, User as UserIcon } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { ApiError, useAuth } from "../auth/AuthContext";
 
@@ -10,7 +10,7 @@ const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 72;
 
 function AuthPanel() {
-  const { login, register } = useAuth();
+  const { login, register, resendVerification } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +21,15 @@ function AuthPanel() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Email shown on the post-registration "check your inbox" screen.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  // Set when login is blocked because the address hasn't been confirmed yet.
+  const [needsVerification, setNeedsVerification] = useState(false);
+
+  // Shared "resend verification email" affordance.
+  const [resending, setResending] = useState(false);
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
+
   const isLogin = mode === "login";
 
   function switchMode(next: AuthMode) {
@@ -29,6 +38,8 @@ function AuthPanel() {
     }
     setMode(next);
     setError(null);
+    setNeedsVerification(false);
+    setResendNotice(null);
     setPassword("");
   }
 
@@ -58,22 +69,28 @@ function AuthPanel() {
     }
 
     setError(null);
+    setNeedsVerification(false);
+    setResendNotice(null);
     setSubmitting(true);
     try {
       const trimmedEmail = email.trim();
       if (isLogin) {
         await login({ email: trimmedEmail, password });
+        // On success the AuthProvider swaps this view out for the dashboard.
       } else {
         const trimmedName = displayName.trim();
-        await register({
+        const result = await register({
           email: trimmedEmail,
           password,
           displayName: trimmedName === "" ? undefined : trimmedName,
         });
+        setPendingEmail(result.email);
       }
-      // On success the AuthProvider swaps this view out for the dashboard.
     } catch (caught) {
       if (caught instanceof ApiError) {
+        if (caught.code === "EMAIL_NOT_VERIFIED") {
+          setNeedsVerification(true);
+        }
         setError(caught.fieldErrors.length > 0 ? caught.fieldErrors.join("\n") : caught.message);
       } else {
         setError("Something went wrong. Please try again.");
@@ -83,6 +100,76 @@ function AuthPanel() {
     }
   }
 
+  async function handleResend(targetEmail: string) {
+    if (resending || targetEmail.trim() === "") {
+      return;
+    }
+    setResending(true);
+    setResendNotice(null);
+    try {
+      await resendVerification(targetEmail.trim());
+      setResendNotice("If that address is registered and unverified, a new link is on its way.");
+    } catch {
+      setResendNotice("Couldn't send the email right now. Please try again in a moment.");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  // ---- Post-registration: ask the user to confirm their email ----
+  if (pendingEmail) {
+    return (
+      <section className="auth-card" aria-label="Verify your email">
+        <div className="notice-icon">
+          <MailCheck size={30} aria-hidden="true" />
+        </div>
+        <div className="heading">
+          <h2>Confirm your email</h2>
+          <p>
+            We've sent a verification link to <strong>{pendingEmail}</strong>. Click it to
+            activate your account, then sign in.
+          </p>
+        </div>
+
+        {resendNotice && (
+          <p className="form-info" role="status">
+            {resendNotice}
+          </p>
+        )}
+
+        <div className="stacked-actions">
+          <button
+            type="button"
+            className="submit-button"
+            onClick={() => handleResend(pendingEmail)}
+            disabled={resending}
+          >
+            {resending ? (
+              <>
+                <Loader2 size={19} className="spin" aria-hidden="true" />
+                Sending…
+              </>
+            ) : (
+              "Resend verification email"
+            )}
+          </button>
+          <button
+            type="button"
+            className="ghost-button block"
+            onClick={() => {
+              setPendingEmail(null);
+              setMode("login");
+              setResendNotice(null);
+            }}
+          >
+            Back to sign in
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  // ---- Default: sign in / sign up form ----
   return (
     <section className="auth-card" aria-label="Authentication">
       <div className="tabs" role="tablist" aria-label="Authentication mode">
@@ -191,6 +278,30 @@ function AuthPanel() {
         {error && (
           <p className="form-error" role="alert">
             {error}
+          </p>
+        )}
+
+        {needsVerification && (
+          <button
+            type="button"
+            className="ghost-button block"
+            onClick={() => handleResend(email)}
+            disabled={resending}
+          >
+            {resending ? (
+              <>
+                <Loader2 size={18} className="spin" aria-hidden="true" />
+                Sending…
+              </>
+            ) : (
+              "Resend verification email"
+            )}
+          </button>
+        )}
+
+        {resendNotice && (
+          <p className="form-info" role="status">
+            {resendNotice}
           </p>
         )}
 

@@ -28,21 +28,28 @@ public class AuthService {
     private final AuthIdentityRepository authIdentityRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final EmailVerificationService emailVerificationService;
 
     public AuthService(
             AppUserRepository appUserRepository,
             AuthIdentityRepository authIdentityRepository,
             PasswordEncoder passwordEncoder,
-            JwtTokenService jwtTokenService
+            JwtTokenService jwtTokenService,
+            EmailVerificationService emailVerificationService
     ) {
         this.appUserRepository = appUserRepository;
         this.authIdentityRepository = authIdentityRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
+        this.emailVerificationService = emailVerificationService;
     }
 
+    /**
+     * Create the account and send a verification email. The user is <em>not</em> signed in: the
+     * email must be confirmed before {@link #login(LoginCommand)} will succeed.
+     */
     @Transactional
-    public AuthResult register(RegisterCommand command) {
+    public RegistrationResult register(RegisterCommand command) {
         String normalizedEmail = normalizeEmail(command.email());
         if (appUserRepository.existsByEmailNormalizedAndDeletedAtIsNull(normalizedEmail)) {
             throw new DuplicateEmailException();
@@ -69,7 +76,8 @@ public class AuthService {
             AppUserEntity savedUser = appUserRepository.save(user);
             authIdentityRepository.save(identity);
             appUserRepository.flush();
-            return issueToken(savedUser);
+            emailVerificationService.issueAndSend(savedUser, savedUser.getDisplayName());
+            return new RegistrationResult(savedUser.getEmail());
         } catch (DataIntegrityViolationException ex) {
             // Lost the race against a concurrent registration; the partial unique
             // indexes on email enforce the invariant the pre-check could not.
@@ -97,6 +105,12 @@ public class AuthService {
         AppUserEntity user = identity.getUser();
         if (user.getDeletedAt() != null || user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException();
+        }
+
+        // Credentials are valid; the only thing standing between the user and a session is
+        // confirming their email. Reported distinctly so the UI can offer a resend.
+        if (!Boolean.TRUE.equals(identity.getProviderEmailVerified())) {
+            throw new EmailNotVerifiedException();
         }
 
         return issueToken(user);

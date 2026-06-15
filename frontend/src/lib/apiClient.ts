@@ -12,18 +12,22 @@ interface ProblemDetail {
   status?: number;
   detail?: string;
   errors?: string[];
+  /** App-specific machine code, e.g. "EMAIL_NOT_VERIFIED". */
+  code?: string;
 }
 
 /** Error thrown for any non-2xx response, carrying a user-presentable message. */
 export class ApiError extends Error {
   readonly status: number;
   readonly fieldErrors: string[];
+  readonly code: string | null;
 
-  constructor(status: number, message: string, fieldErrors: string[] = []) {
+  constructor(status: number, message: string, fieldErrors: string[] = [], code: string | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -78,7 +82,7 @@ async function toApiError(response: Response): Promise<ApiError> {
     problem.detail ??
     problem.title ??
     fallbackMessage(response.status);
-  return new ApiError(response.status, message, fieldErrors);
+  return new ApiError(response.status, message, fieldErrors, problem.code ?? null);
 }
 
 function fallbackMessage(status: number): string {

@@ -1,7 +1,9 @@
 package com.myeasybudget.user.presentation;
 
 import com.myeasybudget.user.application.DuplicateEmailException;
+import com.myeasybudget.user.application.EmailNotVerifiedException;
 import com.myeasybudget.user.application.InvalidCredentialsException;
+import com.myeasybudget.user.application.InvalidVerificationTokenException;
 import com.myeasybudget.user.application.UserNotFoundException;
 import java.time.Instant;
 import org.slf4j.Logger;
@@ -35,6 +37,26 @@ public class AuthExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail handleInvalidCredentials() {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid email or password.");
         problem.setTitle("Invalid credentials");
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    ProblemDetail handleEmailNotVerified() {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN,
+                "Please confirm your email address before signing in.");
+        problem.setTitle("Email not verified");
+        problem.setProperty("code", "EMAIL_NOT_VERIFIED");
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(InvalidVerificationTokenException.class)
+    ProblemDetail handleInvalidVerificationToken() {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+                "This verification link is invalid or has expired.");
+        problem.setTitle("Invalid verification link");
+        problem.setProperty("code", "INVALID_VERIFICATION_TOKEN");
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }
